@@ -1,0 +1,49 @@
+#!/bin/bash
+
+MY_PREFIX="/opt/mylib"
+export MY_PREFIX
+
+CURRENT_PATH=$(cd `dirname $0`; pwd)
+BUILD_MODE=Release
+
+# build <csky|arm> <ecos|linux>
+function build() {
+ARCH=$1
+shift 1
+for OS in $@ ; do
+	echo "********************************************"
+	echo "     Build $ARCH $OS FFMPEG Plug"
+	echo "********************************************"
+
+	BUILD_PATH=_build-$ARCH-$OS
+	mkdir  $BUILD_PATH
+	cd     $BUILD_PATH
+	export ARCH_OS=$ARCH-$OS
+	cmake -DCMAKE_BUILD_TYPE=$BUILD_MODE $CURRENT_PATH|| exit 1
+	make $J || exit 1
+	make install || exit 1
+	cd $CURRENT_PATH
+done
+}
+
+if [[ "$1" = "debug" ]]; then
+	BUILD_MODE=Debug
+	shift 1
+fi
+
+if [[ "$1" = "release" ]]; then
+	BUILD_MODE=Release
+	shift 1
+fi
+
+if [ $# -le 1 ]; then
+	if [ "$1" = "clean" ]; then
+		rm -rf _build-*
+	else
+		echo "./build [debug/release] arm linux"
+		echo "./build clean"
+	fi
+	exit 1
+fi
+
+build $@
