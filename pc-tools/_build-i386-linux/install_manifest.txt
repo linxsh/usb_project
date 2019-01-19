@@ -1,1 +1,0 @@
-/opt/mylib/i386-linux/bin/fingerprint
