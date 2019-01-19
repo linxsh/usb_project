@@ -1,0 +1,13 @@
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/install.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/list_install_components.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/install/strip.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/install/local.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/rebuild_cache.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/CMakeFiles/edit_cache.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/install.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/list_install_components.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/rebuild_cache.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/fingerprint.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/install/local.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/install/strip.dir
+/home/linxsh/soure-code/usb_project/pc-tools/_build-i386-linux/fingerprint/CMakeFiles/edit_cache.dir
