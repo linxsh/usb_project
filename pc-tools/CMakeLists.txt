@@ -7,4 +7,5 @@ PROJECT(fingerprint)
 INCLUDE_DIRECTORIES(${MY_LIBS}/include  )
 INCLUDE(cmake/compile.cmake)
 
-ADD_SUBDIRECTORY(./fingerprint)
+ADD_SUBDIRECTORY(./usbfinger)
+ADD_SUBDIRECTORY(./uartfinger)
