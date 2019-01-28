@@ -249,6 +249,38 @@ int main(int argc, char *argv[])
 
 	PortSet(fdcom, &portinfo);
 
+	while (1) {
+#include "cmd.h"
+		UART_FINGER_CMD rcmd = {UART_FINGER_TAG_FLAG, FINGER_READ, FINGER_CMD, 0};
+		UART_FINGER_CMD acmd;
+
+		ret = uart_send_read_cmd(&rcmd);
+		if (ret != sizeof(rcmd)) {
+			printf("%s %d: error\n", __FUNCTION__, __LINE__);
+			break;
+		}
+
+		ret = uart_recv_ack_cmd(&acmd);
+		if (ret != sizeof(acmd)) {
+			printf("%s %d: error\n", __FUNCTION__, __LINE__);
+			break;
+		}
+
+		if ((acmd.tag != UART_FINGER_TAG_FLAG) || (acmd.opt != FINGER_ACK)) {
+			printf("%s %d: error\n", __FUNCTION__, __LINE__);
+			printf("%x %x\n", acmd.tag, acmd.opt);
+			break;
+		}
+
+		if (acmd.len == 0)
+			continue;
+
+		ret = uart_recv_data(buf, acmd.len);
+		if (ret != acmd.len) {
+			printf("%s %d: warning\n", __FUNCTION__, __LINE__);
+		}
+		//save picture
+	}
 	if(atoi(argv[1]) == 0){
 		//send data
 		for(i=0; i<100; i++){
