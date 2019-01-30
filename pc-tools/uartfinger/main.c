@@ -62,55 +62,6 @@ static int regs_step(int fdcom, unsigned char *buf, unsigned int len)
 	return 0;
 }
 
-static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
-{
-	int ret;
-	UART_FINGER_CMD rcmd, acmd;
-
-	rcmd.tag = UART_FINGER_TAG_FLAG;
-	rcmd.opt = FINGER_READ;
-	rcmd.fmt = FINGER_CMD;
-	rcmd.len = 0;
-	ret = uart_send_cmd(fdcom, &rcmd);
-	if (ret != sizeof(rcmd)) {
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
-	}
-
-	memset(&acmd, 0, sizeof(acmd));
-	ret = uart_recv_cmd(fdcom, &acmd, 1000);
-	if (ret != sizeof(acmd)) {
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
-	}
-
-	if (acmd.len == 0) {
-		sleep(500);
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
-	}
-
-	rcmd.tag = UART_FINGER_TAG_FLAG;
-	rcmd.opt = FINGER_READ;
-	rcmd.fmt = FINGER_DATA;
-	rcmd.len = acmd.len;
-	ret = uart_send_cmd(fdcom, &rcmd);
-	if (ret != sizeof(rcmd)) {
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
-	}
-
-	ret = uart_recv_data(fdcom, buf, acmd.len, 1000);
-	if (ret <= 0) {
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
-	}
-
-	*len = acmd.len;
-
-	return 0;
-}
-
 static void data_save(const char *path, unsigned char *buf_addr, unsigned int buf_len)
 {
 	int ret = 0;
@@ -181,6 +132,56 @@ static void parse_conf(char *regfile)
 	fclose(fd);
 	return;
 }
+
+static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
+{
+	int ret;
+	UART_FINGER_CMD rcmd, acmd;
+
+	rcmd.tag = UART_FINGER_TAG_FLAG;
+	rcmd.opt = FINGER_READ;
+	rcmd.fmt = FINGER_CMD;
+	rcmd.len = 0;
+	ret = uart_send_cmd(fdcom, &rcmd);
+	if (ret != sizeof(rcmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	memset(&acmd, 0, sizeof(acmd));
+	ret = uart_recv_cmd(fdcom, &acmd, 1000);
+	if (ret != sizeof(acmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	if (acmd.len == 0) {
+		sleep(500);
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	rcmd.tag = UART_FINGER_TAG_FLAG;
+	rcmd.opt = FINGER_READ;
+	rcmd.fmt = FINGER_DATA;
+	rcmd.len = acmd.len;
+	ret = uart_send_cmd(fdcom, &rcmd);
+	if (ret != sizeof(rcmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	ret = uart_recv_data(fdcom, buf, acmd.len, 1000);
+	if (ret <= 0) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	*len = acmd.len;
+
+	return 0;
+}
+
 
 //*************************Test*********************************
 int main(int argc, char *argv[])
