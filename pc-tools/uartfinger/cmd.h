@@ -21,10 +21,8 @@ typedef struct {
 } UART_FINGER_CMD;
 
 
-int uart_send_read_cmd (UART_FINGER_CMD *cmd);
-int uart_send_write_cmd(UART_FINGER_CMD *cmd);
-int uart_recv_ack_cmd  (UART_FINGER_CMD *cmd);
-
-int uart_send_data(unsigned char *buf, unsigned int len);
-int uart_recv_data(unsigned char *buf, unsigned int len);
+int uart_send_cmd (int fdcom, UART_FINGER_CMD *cmd);
+int uart_recv_cmd (int fdcom, UART_FINGER_CMD *cmd, int timeout_ms);
+int uart_send_data(int fdcom, unsigned char *buf, unsigned int len);
+int uart_recv_data(int fdcom, unsigned char *buf, unsigned int len, int timeout_ms);
 #endif

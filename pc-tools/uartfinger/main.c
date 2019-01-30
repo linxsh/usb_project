@@ -1,314 +1,223 @@
 #include <stdio.h>              // printf
-#include <fcntl.h>              // open
-#include <string.h>             // bzero
-#include <stdlib.h>             // exit
-#include <sys/times.h>          // times
-#include <sys/types.h>          // pid_t
-#include <termios.h>          //termios, tcgetattr(), tcsetattr()
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <sys/ioctl.h>          // ioctl
-#include "main.h"
+#include <string.h>             // bzero
+#include <time.h>
+#include "cmd.h"
+#include "uart.h"
 
-#define TTY_DEV "/dev/ttyUSB" //端口路径
+struct reg_config {
+	unsigned char addr;
+	unsigned char value;
+};
 
-#define TIMEOUT_SEC(buflen,baud) (buflen*20/baud+2)  //接收超时
-#define TIMEOUT_USEC 0
-/*******************************************
- *  获得端口名称
- ********************************************/
-static char *ptty;
-char *get_ptty(pportinfo_t pportinfo)
+#define REG_NUM 256
+static struct reg_config conf[REG_NUM];
+static int ctrl_c = 0;
+
+static void my_handler(int s)
 {
-	switch(pportinfo->tty){
-	case '0':{
-		ptty = TTY_DEV"0";
-	}break;
-	case '1':{
-		ptty = TTY_DEV"1";
-	}break;
-	case '2':{
-		ptty = TTY_DEV"2";
-	}break;
-	}
-	return(ptty);
+	ctrl_c = 1;
 }
 
-/*******************************************
- *  波特率转换函数（请确认是否正确）
- ********************************************/
-int convbaud(unsigned long int baudrate)
+static int regs_step(int fdcom, unsigned char *buf, unsigned int len)
 {
-	switch(baudrate){
-	case 2400:
-		return B2400;
-	case 4800:
-		return B4800;
-	case 9600:
-		return B9600;
-	case 19200:
-		return B19200;
-	case 38400:
-		return B38400;
-	case 57600:
-		return B57600;
-	case 115200:
-		return B115200;
-	default:
-		return B9600;
-	}
-}
+	int ret;
+	UART_FINGER_CMD scmd, acmd;
 
-/*******************************************
- *  Setup comm attr
- *  fdcom: 串口文件描述符，pportinfo: 待设置的端口信息（请确认）
- *
- ********************************************/
-int PortSet(int fdcom, const pportinfo_t pportinfo)
-{
-	struct termios termios_old, termios_new;
-	int     baudrate, tmp;
-	char    databit, stopbit, parity, fctl;
-
-	bzero(&termios_old, sizeof(termios_old));
-	bzero(&termios_new, sizeof(termios_new));
-	cfmakeraw(&termios_new);
-	tcgetattr(fdcom, &termios_old);         //get the serial port attributions
-	/*------------设置端口属性----------------*/
-	//baudrates
-	baudrate = convbaud(pportinfo -> baudrate);
-	cfsetispeed(&termios_new, baudrate);        //填入串口输入端的波特率
-	cfsetospeed(&termios_new, baudrate);        //填入串口输出端的波特率
-	termios_new.c_cflag |= CLOCAL;          //控制模式，保证程序不会成为端口的占有者
-	termios_new.c_cflag |= CREAD;           //控制模式，使能端口读取输入的数据
-
-	// 控制模式，flow control
-	fctl = pportinfo-> fctl;
-	switch(fctl){
-	case '0':{
-		termios_new.c_cflag &= ~CRTSCTS;        //no flow control
-	}break;
-	case '1':{
-		termios_new.c_cflag |= CRTSCTS;         //hardware flow control
-	}break;
-	case '2':{
-		termios_new.c_iflag |= IXON | IXOFF |IXANY; //software flow control
-	}break;
-	}
-
-	//控制模式，data bits
-	termios_new.c_cflag &= ~CSIZE;      //控制模式，屏蔽字符大小位
-	databit = pportinfo -> databit;
-	switch(databit){
-	case '5':
-		termios_new.c_cflag |= CS5;
-	case '6':
-		termios_new.c_cflag |= CS6;
-	case '7':
-		termios_new.c_cflag |= CS7;
-	default:
-		termios_new.c_cflag |= CS8;
-	}
-
-	//控制模式 parity check
-	parity = pportinfo -> parity;
-	switch(parity){
-	case '0':{
-		termios_new.c_cflag &= ~PARENB;     //no parity check
-	}break;
-	case '1':{
-		termios_new.c_cflag |= PARENB;      //odd check
-		termios_new.c_cflag &= ~PARODD;
-	}break;
-	case '2':{
-		termios_new.c_cflag |= PARENB;      //even check
-		termios_new.c_cflag |= PARODD;
-	}break;
-	}
-
-	//控制模式，stop bits
-	stopbit = pportinfo -> stopbit;
-	if(stopbit == '2'){
-		termios_new.c_cflag |= CSTOPB;  //2 stop bits
-	}
-	else{
-		termios_new.c_cflag &= ~CSTOPB; //1 stop bits
-	}
-
-	//other attributions default
-	termios_new.c_oflag &= ~OPOST;          //输出模式，原始数据输出
-	termios_new.c_cc[VMIN]  = 1;            //控制字符, 所要读取字符的最小数量
-	termios_new.c_cc[VTIME] = 1;            //控制字符, 读取第一个字符的等待时间    unit: (1/10)second
-
-	tcflush(fdcom, TCIFLUSH);               //溢出的数据可以接收，但不读
-	tmp = tcsetattr(fdcom, TCSANOW, &termios_new);  //设置新属性，TCSANOW：所有改变立即生效    tcgetattr(fdcom, &termios_old);
-	return(tmp);
-}
-
-/*******************************************
- *  Open serial port
- *  tty: 端口号 ttyS0, ttyS1, ....
- *  返回值为串口文件描述符
- ********************************************/
-int PortOpen(pportinfo_t pportinfo)
-{
-	int fdcom;  //串口文件描述符
-	char *ptty;
-
-	ptty = get_ptty(pportinfo);
-	//fdcom = open(ptty, O_RDWR | O_NOCTTY | O_NONBLOCK | O_NDELAY);
-	fdcom = open(ptty, O_RDWR | O_NOCTTY | O_NONBLOCK);
-
-	return (fdcom);
-}
-
-/*******************************************
- *  Close serial port
- ********************************************/
-void PortClose(int fdcom)
-{
-	close(fdcom);
-}
-
-/********************************************
- *  send data
- *  fdcom: 串口描述符，data: 待发送数据，datalen: 数据长度
- *  返回实际发送长度
- *********************************************/
-int PortSend(int fdcom, char *data, int datalen)
-{
-	int len = 0;
-
-	len = write(fdcom, data, datalen);  //实际写入的长度
-	if(len == datalen){
-		return (len);
-	}
-	else{
-		tcflush(fdcom, TCOFLUSH);
+	scmd.tag = UART_FINGER_TAG_FLAG;
+	scmd.opt = FINGER_WRITE;
+	scmd.fmt = FINGER_CMD;
+	scmd.len = len;
+	ret = uart_send_cmd(fdcom, &scmd);
+	if (ret != sizeof(scmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
 		return -1;
 	}
+
+	memset(&acmd, 0, sizeof(acmd));
+	ret = uart_recv_cmd(fdcom, &acmd, 1000);
+	if (ret != sizeof(acmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	ret = uart_send_data(fdcom, buf, len);
+	if (ret != len) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	memset(&acmd, 0, sizeof(acmd));
+	ret = uart_recv_cmd(fdcom, &acmd, 1000);
+	if (ret != sizeof(acmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	return 0;
 }
 
-/*******************************************
- *  receive data
- *  返回实际读入的字节数
- *
- ********************************************/
-int PortRecv(int fdcom, char *data, int datalen, int baudrate)
+static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
 {
-	int readlen, fs_sel;
-	fd_set  fs_read;
-	struct timeval tv_timeout;
+	int ret;
+	UART_FINGER_CMD rcmd, acmd;
 
-	FD_ZERO(&fs_read);
-	FD_SET(fdcom, &fs_read);
-	tv_timeout.tv_sec = TIMEOUT_SEC(datalen, baudrate);
-	tv_timeout.tv_usec = TIMEOUT_USEC;
-
-	fs_sel = select(fdcom+1, &fs_read, NULL, NULL, &tv_timeout);
-	if(fs_sel){
-		readlen = read(fdcom, data, datalen);
-		return(readlen);
-	}
-	else{
-		return(-1);
+	rcmd.tag = UART_FINGER_TAG_FLAG;
+	rcmd.opt = FINGER_READ;
+	rcmd.fmt = FINGER_CMD;
+	rcmd.len = 0;
+	ret = uart_send_cmd(fdcom, &rcmd);
+	if (ret != sizeof(rcmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
 	}
 
-	return (readlen);
+	memset(&acmd, 0, sizeof(acmd));
+	ret = uart_recv_cmd(fdcom, &acmd, 1000);
+	if (ret != sizeof(acmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	if (acmd.len == 0) {
+		sleep(500);
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	rcmd.tag = UART_FINGER_TAG_FLAG;
+	rcmd.opt = FINGER_READ;
+	rcmd.fmt = FINGER_DATA;
+	rcmd.len = acmd.len;
+	ret = uart_send_cmd(fdcom, &rcmd);
+	if (ret != sizeof(rcmd)) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	ret = uart_recv_data(fdcom, buf, acmd.len, 1000);
+	if (ret <= 0) {
+		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
+		return -1;
+	}
+
+	*len = acmd.len;
+
+	return 0;
+}
+
+static void data_save(const char *path, unsigned char *buf_addr, unsigned int buf_len)
+{
+	int ret = 0;
+	time_t tt = time(NULL);
+	struct tm *stm = localtime(&tt);
+	char filename[1024];
+	int fd = 0;
+
+	if (path == NULL) {
+		sprintf(filename, "./%04d-%02d-%2d-%2d-%2d-%02d.yuv",
+				1900 + stm->tm_year,
+				1 + stm->tm_mon,
+				stm->tm_mday,
+				stm->tm_hour,
+				stm->tm_min,
+				stm->tm_sec);
+	} else {
+		sprintf(filename, "%s/%04d-%02d-%2d-%2d-%2d-%02d.yuv",
+				path,
+				1900 + stm->tm_year,
+				1 + stm->tm_mon,
+				stm->tm_mday,
+				stm->tm_hour,
+				stm->tm_min,
+				stm->tm_sec);
+	}
+
+	fd = open(filename, O_WRONLY|O_CREAT, S_IRWXU);
+	if (fd == -1) {
+		printf("file create fail: %s\n", filename);
+		return;
+	}
+
+	ret = write(fd, buf_addr, buf_len);
+	if (ret < buf_len) {
+		printf("file arite fail: %s\n", filename);
+		return;
+	}
+
+	close(fd);
+
+	return;
 }
 
 //*************************Test*********************************
 int main(int argc, char *argv[])
 {
-	int fdcom, i, SendLen, RecvLen;
-	char RecvBuf[10];
-	portinfo_t portinfo ={
+	int fdcom;
+	portinfo_t portinfo = {
+		"ttyUSB0",                      // ttyUSB0,...
 		'0',                            // print prompt after receiving
 		115200,                         // baudrate: 9600
 		'8',                            // databit: 8
 		'0',                            // debug: off
 		'0',                            // echo: off
 		'2',                            // flow control: software
-		'0',                            // default tty: COM1
 		'0',                            // parity: none
 		'1',                            // stopbit: 1
 		0                          // reserved
 	};
-	/*
-	   if(argc != 2){
-	   printf("Usage: <type 0 -- send 1 -- receive>\n");
-	   printf("   eg:");
-	   printf("        MyPort 0");
-	   exit(-1);
-	   }
-	   */
-	fdcom = PortOpen(&portinfo);
-	if(fdcom<0){
+	char  opt;
+	char *path = NULL;
+	struct sigaction sigIntHandler;
+	unsigned char buf_addr[2*640*480];
+	unsigned int  buf_len = 0;
+
+	while ((opt = getopt(argc,argv,"d:p:")) != -1) {
+		switch (opt) {
+		case 'd':
+			portinfo.tty = strdup(optarg);
+			break;
+		case 'p':
+			path = strdup(optarg);
+			break;
+		default:
+			exit(1);
+		}
+	}
+
+	fdcom = port_open(&portinfo);
+	if (fdcom < 0) {
 		printf("Error: open serial port error.\n");
 		exit(1);
 	}
+	port_set(fdcom, &portinfo);
 
-	PortSet(fdcom, &portinfo);
+	sigIntHandler.sa_handler = my_handler;
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigaction(SIGINT, &sigIntHandler, NULL);
 
-	while (1) {
-#include "cmd.h"
-		UART_FINGER_CMD rcmd = {UART_FINGER_TAG_FLAG, FINGER_READ, FINGER_CMD, 0};
-		UART_FINGER_CMD acmd;
-
-		ret = uart_send_read_cmd(&rcmd);
-		if (ret != sizeof(rcmd)) {
-			printf("%s %d: error\n", __FUNCTION__, __LINE__);
-			break;
-		}
-
-		ret = uart_recv_ack_cmd(&acmd);
-		if (ret != sizeof(acmd)) {
-			printf("%s %d: error\n", __FUNCTION__, __LINE__);
-			break;
-		}
-
-		if ((acmd.tag != UART_FINGER_TAG_FLAG) || (acmd.opt != FINGER_ACK)) {
-			printf("%s %d: error\n", __FUNCTION__, __LINE__);
-			printf("%x %x\n", acmd.tag, acmd.opt);
-			break;
-		}
-
-		if (acmd.len == 0)
-			continue;
-
-		ret = uart_recv_data(buf, acmd.len);
-		if (ret != acmd.len) {
-			printf("%s %d: warning\n", __FUNCTION__, __LINE__);
-		}
-		//save picture
-	}
-	if(atoi(argv[1]) == 0){
-		//send data
-		for(i=0; i<100; i++){
-			SendLen = PortSend(fdcom, "1234567890", 10);
-			if(SendLen>0){
-				printf("No %d send %d data 1234567890.\n", i, SendLen);
-			}
-			else{
-				printf("Error: send failed.\n");
-			}
-			sleep(1);
-		}
-		PortClose(fdcom);
-	}
-	else{
-		for(;;){
-			RecvLen = PortRecv(fdcom, RecvBuf, 1024, portinfo.baudrate);
-			if(RecvLen>0){
-				for(i=0; i<RecvLen; i++){
-					printf("Receive data No %d is %x.\n", i, (unsigned char)RecvBuf[i]);
-				}
-				printf("Total frame length is %d.\n", RecvLen);
-			}
-			else{
-				printf("Error: receive error.\n");
-			}
-			sleep(2);
+	while (regs_step(fdcom, (unsigned char *)conf, (REG_NUM * sizeof(struct reg_config))) == 0) {
+		if (ctrl_c) {
+			printf("exit regs step..\n");
+			exit(1);
 		}
 	}
+
+	while (data_step(fdcom, buf_addr, &buf_len) == 0) {
+		data_save(path, buf_addr, buf_len);
+		if (ctrl_c) {
+			printf("exit regs step..\n");
+			exit(1);
+		}
+	}
+
+	port_close(fdcom);
+
 	return 0;
 }
