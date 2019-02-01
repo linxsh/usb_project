@@ -2,7 +2,8 @@
 #define __MODULE_H__
 
 typedef enum {
-	MODULE_DCI_TYPE = 0,
+	MOD_DCI_TYPE    = 0,
+	MOD_GC0308_TYPE = 1,
 } MODULE_TYPE;
 
 typedef struct {

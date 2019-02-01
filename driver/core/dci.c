@@ -20,3 +20,11 @@ int core_dci_open(int id)
 
 	return 0;
 }
+
+int core_dci_close(int id)
+{
+	if (dciOps && dciOps->close)
+		dciOps->close(id);
+
+	return 0;
+}
