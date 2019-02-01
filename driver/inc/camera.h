@@ -14,4 +14,6 @@ typedef struct {
 } CMD_SET_CAMERA_E;
 
 
+typedef struct {
+};
 #endif
