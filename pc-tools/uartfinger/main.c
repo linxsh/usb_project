@@ -100,18 +100,18 @@ static struct reg_config conf[] = {
 */
 
 // 300*300
-/*  {0x05, 0x00},  // row_start_high
-	{0x06, 0xAA},  // row_start_low
+	{0x05, 0x00},  // row_start_high
+	{0x06, 0x00},  // row_start_low
 	{0x07, 0x00},  // col_start_high
-	{0x08, 0x5A},  // col_start_low
+	{0x08, 0x00},  // col_start_low
 	{0x09, 0x01},  //[8]cis_win_height
 	{0x0a, 0x34},  //[7:0]cis_win_height
 	{0x0b, 0x01},  //[9:8]cis_win_width
 	{0x0c, 0x34},  //[7:0]cis_win_width
-*/
+
 
 // 240*240
-	{0x05, 0x00},  // row_start_high
+/*	{0x05, 0x00},  // row_start_high
 	{0x06, 0xc8},  // row_start_low
 	{0x07, 0x00},  // col_start_high
 	{0x08, 0x78},  // col_start_low
@@ -119,6 +119,7 @@ static struct reg_config conf[] = {
 	{0x0a, 0xf8},  //[7:0]cis_win_height
 	{0x0b, 0x00},  //[9:8]cis_win_width
 	{0x0c, 0xf8},  //[7:0]cis_win_width
+*/
 
 	{0x0d, 0x02},  //vs_st
 	{0x0e, 0x02},  //vs_et
@@ -141,7 +142,7 @@ static struct reg_config conf[] = {
 	{0x20, 0xef},  //[7]bks[6]gamma[5]cc[4]ee[3]intp[2]dn[1]dd[0]lsc
 	{0x21, 0xf8},  //[7]na[6]na[5]skin_ee[4]cbcr_hue_en[3]y_as_en[2]auto_gray_en[1]y_gamma_en[0]na
 	{0x22, 0x57},  //[7]na [6]auto_dndd [5]auto_ee [4]auto_sa [3]na [2]abs [1]awb  [0]na
-	{0x24, 0xa2},  //YCbYcr //  a2
+	{0x24, 0xb1},  //YCbYcr //  a2
 	{0x25, 0x0f},
 	{0x26, 0x03},  //02		// 07-16原始值01
 	{0x2f, 0x01},  //debug mode3
@@ -212,7 +213,7 @@ static struct reg_config conf[] = {
 	{0xbe, 0x36},  // [5:4]gray mode 00:4&8  01:4&12 10:4&20  11:8$16   [3:0] auto_gray
 	{0xd0, 0xcb},  // exp is gc mode
 	{0xd1, 0x10},  //every N
-	{0xd2, 0x90},  // 7 aec enable 5 clore y mode 4skin weight 3 weight drop mode
+	{0xd2, 0x10},  // 7 aec enable 5 clore y mode 4skin weight 3 weight drop mode
 	{0xd3, 0x48},  //Y_target and low pixel thd high X4 low X2
 	{0xd5, 0xf2},  //lhig
 	{0xd6, 0x16},  // ignore mode
@@ -326,11 +327,6 @@ static struct reg_config conf[] = {
 
 static int ctrl_c = 0;
 
-static void my_handler(int s)
-{
-	ctrl_c = 1;
-}
-
 static int regs_step(int fdcom, unsigned char *buf, unsigned int len)
 {
 	int ret;
@@ -378,7 +374,7 @@ static void data_save(const char *path, unsigned char *buf_addr, unsigned int bu
 	int fd = -1;
 
 	if (path == NULL) {
-		sprintf(filename, "./%04d-%02d-%2d-%2d-%2d-%02d.yuv",
+		sprintf(filename, "./%04d.%02d.%02d-%02d.%02d.%02d.yuv",
 				1900 + stm->tm_year,
 				1 + stm->tm_mon,
 				stm->tm_mday,
@@ -386,7 +382,7 @@ static void data_save(const char *path, unsigned char *buf_addr, unsigned int bu
 				stm->tm_min,
 				stm->tm_sec);
 	} else {
-		sprintf(filename, "%s/%04d-%02d-%2d-%2d-%2d-%02d.yuv",
+		sprintf(filename, "%s/%04d.%02d.%02d-%02d.%02d.%02d.yuv",
 				path,
 				1900 + stm->tm_year,
 				1 + stm->tm_mon,
@@ -396,6 +392,7 @@ static void data_save(const char *path, unsigned char *buf_addr, unsigned int bu
 				stm->tm_sec);
 	}
 
+	printf("save file: %s\n", filename);
 	fd = open(filename, O_WRONLY|O_CREAT, 00755);
 	if (fd == -1) {
 		printf("file create fail: %s\n", filename);
@@ -462,10 +459,10 @@ static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
 		return -1;
 	}
 
+	printf("Recieve Len: %d\n", acmd.len);
 	if (acmd.len == 0) {
-		sleep(2);
 		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
-		return -1;
+		return 0;
 	}
 
 	rcmd.tag = UART_FINGER_TAG_FLAG;
@@ -508,7 +505,6 @@ int main(int argc, char *argv[])
 	};
 	char  opt;
 	char *path = NULL, *regfile = NULL;
-	struct sigaction sigIntHandler;
 	unsigned char buf_addr[2*640*480];
 	unsigned int  buf_len = 0;
 
@@ -538,12 +534,7 @@ int main(int argc, char *argv[])
 	}
 	port_set(fdcom, &portinfo);
 
-	sigIntHandler.sa_handler = my_handler;
-	sigemptyset(&sigIntHandler.sa_mask);
-	sigIntHandler.sa_flags = 0;
-	sigaction(SIGINT, &sigIntHandler, NULL);
-
-	while (regs_step(fdcom, (unsigned char *)conf, sizeof(conf)) == 0) {
+	while (regs_step(fdcom, (unsigned char *)conf, sizeof(conf)) != 0) {
 		if (ctrl_c) {
 			printf("exit regs step..\n");
 			exit(1);
@@ -551,11 +542,13 @@ int main(int argc, char *argv[])
 	}
 
 	while (data_step(fdcom, buf_addr, &buf_len) == 0) {
-		data_save(path, buf_addr, buf_len);
+		if (buf_len > 0)
+			data_save(path, buf_addr, buf_len);
 		if (ctrl_c) {
 			printf("exit regs step..\n");
 			exit(1);
 		}
+		sleep(1);
 	}
 
 	port_close(fdcom);

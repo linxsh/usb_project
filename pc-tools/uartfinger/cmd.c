@@ -25,7 +25,7 @@ int uart_recv_cmd(int fdcom, UART_FINGER_CMD *cmd, int timeout_ms)
 	}
 	CHECK_TAG(cmd->tag);
 
-	return 0;
+	return recv_len;
 }
 
 int uart_send_data(int fdcom, unsigned char *buf, unsigned int len)
@@ -44,5 +44,5 @@ int uart_recv_data(int fdcom, unsigned char *buf, unsigned int len, int timeout_
 			return -1;
 	}
 
-	return 0;
+	return recv_len;
 }
