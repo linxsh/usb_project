@@ -20,8 +20,8 @@ static struct reg_config conf[] = {
 	{0x01, 0xfa},
 	{0x02, 0x70},
 	{0x0f, 0x01},
-	{0x03, 0x01},
-	{0x04, 0x2c},
+	{0x03, 0x00},
+	{0x04, 0x10},
 	{0xe2, 0x00},  //anti-flicker step [11:8]
 	{0xe3, 0x64},  //anti-flicker step [7:0]
 	{0xe4, 0x02},  //exp level 1  16.67fps
@@ -99,15 +99,15 @@ static struct reg_config conf[] = {
 	{0x0c, 0x70},  //[7:0]cis_win_width
 */
 
-// 300*300
+// 400*300
 	{0x05, 0x00},  // row_start_high
-	{0x06, 0x00},  // row_start_low
+	{0x06, 0x60},  // row_start_low
 	{0x07, 0x00},  // col_start_high
 	{0x08, 0x00},  // col_start_low
 	{0x09, 0x01},  //[8]cis_win_height
 	{0x0a, 0x34},  //[7:0]cis_win_height
 	{0x0b, 0x01},  //[9:8]cis_win_width
-	{0x0c, 0x34},  //[7:0]cis_win_width
+	{0x0c, 0x96},  //[7:0]cis_win_width
 
 
 // 240*240
@@ -184,8 +184,8 @@ static struct reg_config conf[] = {
 	{0x6b, 0x00},  //[7:4]dn_b slop [3:0]dn_n slop
 	{0x6c, 0x5f},  //[7:4]bright_th start [3:0]bright_th slop
 	{0x6d, 0x8f},  //[7:4]dd_limit_start[3:0]dd_limit slop
-	{0x6e, 0x55},  //[7:4]ee1 effect start [3:0]slope  broad
-	{0x6f, 0x38},  //[7:4]ee2 effect start [3:0]slope  narrow
+	{0x6e, 0xa5},  //[7:4]ee1 effect start [3:0]slope  broad
+	{0x6f, 0xa8},  //[7:4]ee2 effect start [3:0]slope  narrow
 	{0x70, 0x15},  //saturation dec slope
 	{0x71, 0x33},  //[7:4]low limit,[3:0]saturation slope
 	{0x72, 0xdc},  //[7]edge_add_mode [6]new edge mode [5]edge2_mode [4]HP_mode
@@ -207,7 +207,7 @@ static struct reg_config conf[] = {
 	{0x98, 0xf0},
 	{0xb1, 0x40},  //manual cb
 	{0xb2, 0x40},  //manual cr
-	{0xb3, 0x50},  // x040
+	{0xb3, 0x30},  // x040
 	{0xb6, 0xe0},
 	{0xbd, 0x38},
 	{0xbe, 0x36},  // [5:4]gray mode 00:4&8  01:4&12 10:4&20  11:8$16   [3:0] auto_gray
@@ -442,6 +442,7 @@ static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
 	int ret;
 	UART_FINGER_CMD rcmd, acmd;
 
+	*len = 0;
 	rcmd.tag = UART_FINGER_TAG_FLAG;
 	rcmd.opt = FINGER_READ;
 	rcmd.fmt = FINGER_CMD;
@@ -461,7 +462,6 @@ static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
 
 	printf("Recieve Len: %d\n", acmd.len);
 	if (acmd.len == 0) {
-		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
 		return 0;
 	}
 
@@ -475,7 +475,7 @@ static int data_step(int fdcom, unsigned char *buf, unsigned int *len)
 		return -1;
 	}
 
-	ret = uart_recv_data(fdcom, buf, acmd.len, 1000);
+	ret = uart_recv_data(fdcom, buf, acmd.len, 5000);
 	if (ret <= 0) {
 		printf("%s %d: warning (%d)\n", __FUNCTION__, __LINE__, ret);
 		return -1;

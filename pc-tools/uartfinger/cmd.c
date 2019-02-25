@@ -1,5 +1,6 @@
 #include "cmd.h"
 #include "uart.h"
+#include <stdio.h>              // printf
 
 #define CHECK_TAG(tag) do {        \
 	if (tag != UART_FINGER_TAG_FLAG) \
@@ -36,12 +37,17 @@ int uart_send_data(int fdcom, unsigned char *buf, unsigned int len)
 int uart_recv_data(int fdcom, unsigned char *buf, unsigned int len, int timeout_ms)
 {
 	unsigned int recv_len = 0;
+	unsigned int start_transmit = 0;
 
 	while (recv_len < len) {
 		recv_len += port_recv(fdcom, ((char *)buf + recv_len),
 				(len - recv_len), timeout_ms);
 		if (recv_len == 0)
 			return -1;
+		else if (start_transmit == 0) {
+			printf("start...\n");
+			start_transmit = 1;
+		}
 	}
 
 	return recv_len;
