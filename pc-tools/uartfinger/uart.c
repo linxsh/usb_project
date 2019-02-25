@@ -30,6 +30,14 @@ static int _cov_baud(unsigned long int baudrate)
 		return B57600;
 	case 115200:
 		return B115200;
+	case 460800:
+		return B460800;
+	case 921600:
+		return B921600;
+	case 1152000:
+		return B1152000;
+	case 1500000:
+		return B1500000;
 	default:
 		return B9600;
 	}
@@ -53,7 +61,7 @@ int port_set(int fdcom, const pportinfo_t pportinfo)
 	/*------------设置端口属性----------------*/
 	//baudrates
 	baudrate = _cov_baud(pportinfo -> baudrate);
-	cfsetispeed(&termios_new, baudrate);        //填入串口输入端的波特率
+	cfsetispeed(&termios_new, B115200);        //填入串口输入端的波特率
 	cfsetospeed(&termios_new, baudrate);        //填入串口输出端的波特率
 	termios_new.c_cflag |= CLOCAL;          //控制模式，保证程序不会成为端口的占有者
 	termios_new.c_cflag |= CREAD;           //控制模式，使能端口读取输入的数据
@@ -118,6 +126,7 @@ int port_set(int fdcom, const pportinfo_t pportinfo)
 
 	tcflush(fdcom, TCIFLUSH);               //溢出的数据可以接收，但不读
 	tmp = tcsetattr(fdcom, TCSANOW, &termios_new);  //设置新属性，TCSANOW：所有改变立即生效    tcgetattr(fdcom, &termios_old);
+
 	return(tmp);
 }
 

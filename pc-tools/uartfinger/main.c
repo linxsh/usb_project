@@ -156,7 +156,7 @@ static struct reg_config conf[] = {
 	{0x3d, 0x00},  //manual r offset
 	{0x3e, 0x00},  //manual b offset
 	{0x3f, 0x00},  //manual g2 offset
-	{0x50, 0x14},  //10  //global gain
+	{0x50, 0x10},  //10  //global gain
 	{0x53, 0x80},  //G 
 	{0x54, 0x80},  //R channel gain
 	{0x55, 0x80},  //B channel gain
@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
 	portinfo_t portinfo = {
 		"ttyUSB0",                      // ttyUSB0,...
 		'0',                            // print prompt after receiving
-		115200,                         // baudrate: 9600
+		1500000,                         // baudrate: 9600
 		'8',                            // databit: 8
 		'0',                            // debug: off
 		'0',                            // echo: off
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
 			printf("exit regs step..\n");
 			exit(1);
 		}
-		sleep(1);
+		usleep(100000);
 	}
 
 	port_close(fdcom);
