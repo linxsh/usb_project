@@ -39,13 +39,21 @@ class ShowY(object):
 if __name__ == '__main__':
     yshow = ShowY();
     yshow.show(0, '1.yuv', (300, 400))
+    cv2.waitKey(200)
     yshow.show(1, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(2, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(3, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(4, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(5, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(6, '1.yuv', (300, 400))
+    cv2.waitKey(2000)
     yshow.show(7, '1.yuv', (300, 400))
+    cv2.waitKey(1000)
     yshow.show(8, '1.yuv', (300, 400))
     while (1):
         if cv2.waitKey(20) & 0xFF == ord('q'):

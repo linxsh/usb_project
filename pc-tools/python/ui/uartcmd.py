@@ -1,6 +1,6 @@
 #coding=utf-8
 import serial
-#from compiler.ast import flatten
+from compiler.ast import flatten
 
 # commandd flag
 CMD_MAGIC_FLAG = 0x66696e67
@@ -85,7 +85,6 @@ class UartCmd(object):
                 imsg +=  omsg[12:16]
                 self.uart.write(imsg)
                 omsg = str_to_list1(self.uart.read(data_len))
-                print (omsg)
                 return omsg
             else:
                 return []
@@ -101,7 +100,7 @@ if __name__ == '__main__':
         [0x02, 0x70],
         [0x0f, 0x01],
         [0x03, 0x00],
-        [0x04, 0x10],
+        [0x04, 0x08],
         [0xe2, 0x00],  #anti-flicker step [11:8]
         [0xe3, 0x64],  #anti-flicker step [7:0]
         [0xe4, 0x02],  #exp level 1  16.67fps
@@ -394,5 +393,5 @@ if __name__ == '__main__':
         [0x46, 0xEE],  #sat15,at224
         [0x47, 0x0d],  #blue_edge_dec_ratio  
         [0xfe, 0x00]]
-    #cmd.send_regs(flatten(reg))
-    cmd.recv_data()
+    cmd.send_regs(flatten(reg))
+    cmd.recv_data(0)
